@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "expo": "^57.0.25",
+    "lucide-react-native": "^1.48.0",
+    "react-native-svg": "15.15.4"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.4",
+    "typescript": "~6.0.3"
+  }
+}

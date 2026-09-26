@@ -1,0 +1,14 @@
+{
+  "merchantName": "Sharma Ji",
+  "todayRevenue": 18450,
+  "revenueChangePct": 4.2,
+  "eveningDropPct": 19,
+  "dormantCustomersCount": 83,
+  "recommendation": {
+    "title": "Evening Surge Campaign",
+    "discount": "₹50 OFF",
+    "minOrder": "₹299",
+    "duration": "3 days",
+    "targetCount": 83
+  }
+}
