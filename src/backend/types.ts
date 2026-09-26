@@ -21,6 +21,8 @@ export interface CampaignProposal {
   targetCohortSize: number;
   durationDays: number;
   status: CampaignStatus;
+  approvedAt?: string;
+  activatedAt?: string;
 }
 
 export interface BusinessState {

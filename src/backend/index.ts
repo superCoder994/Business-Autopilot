@@ -44,7 +44,7 @@ export class AutopilotEngine {
     };
   }
 
-  public async investigateDrop() {
+  public async investigateDrop(query = '') {
     const { dropPct, current } = calculateEveningDrop(
       this.transactions,
       this.baselineEveningSales,
@@ -54,12 +54,27 @@ export class AutopilotEngine {
     );
     const dormantCohortSize = getDormantCustomers(this.customers, 21).length;
 
-    return aiController.investigateDrop({
+    const analysis = await aiController.investigateDrop({
       dropPct,
       dormantCohortSize,
       eveningRevenue: current,
       baselineEveningRevenue: this.baselineEveningSales
     });
+    const state = this.getBusinessState();
+    const normalizedQuery = query.toLowerCase();
+    const asksForItems = /\b(top|item|dish|product|menu)\b/.test(normalizedQuery);
+    const hasProposal = /\b(campaign|re-engage|dormant|evening|sales|drop|recommend|promotion)\b/.test(normalizedQuery);
+    const findings = [
+      `Evening sales are down ${analysis.dropPct}% versus the ₹${this.baselineEveningSales.toLocaleString('en-IN')} baseline.`,
+      `${analysis.dormantCohortSize} customers have been inactive for more than 21 days.`,
+      `Today's revenue is ₹${state.todayRevenue.toLocaleString('en-IN')}.`
+    ];
+
+    const reply = asksForItems
+      ? 'Item-level sales are not available because this account has no product or order-line data connected yet. I can still summarize revenue and customer activity.'
+      : `${analysis.summary} Today's revenue is ₹${state.todayRevenue.toLocaleString('en-IN')}.`;
+
+    return { reply, findings, hasProposal };
   }
 
   public async generateAndVerifyCampaign(): Promise<{
@@ -92,7 +107,7 @@ export class AutopilotEngine {
     const policy = validateCampaignPolicy(campaign);
     if (!policy.isValid) throw new Error('Campaign failed policy validation');
 
-    const approved = { ...campaign, status: 'approved' as const };
+    const approved = { ...campaign, status: 'approved' as const, approvedAt: new Date().toISOString() };
     this.campaigns.set(id, approved);
     return approved;
   }
@@ -114,7 +129,7 @@ export class AutopilotEngine {
       throw new Error(`Campaign can only be activated after approval; current status is ${campaign.status}`);
     }
 
-    const active = { ...campaign, status: 'active' as const };
+    const active = { ...campaign, status: 'active' as const, activatedAt: new Date().toISOString() };
     this.campaigns.set(id, active);
     return active;
   }

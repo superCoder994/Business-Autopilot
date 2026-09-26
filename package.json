@@ -5,14 +5,16 @@
     "expo-audio": "^57.0.5",
     "expo-document-picker": "^57.0.2",
     "expo-image-picker": "^57.0.20",
-    "express": "^5.2.1",
     "expo-speech": "~57.0.3",
+    "express": "^5.2.1",
     "lucide-react-native": "^1.48.0",
+    "multer": "^2.4.0",
     "react-native-svg": "^15.15.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "^26.6.3",
     "@types/react": "~19.2.4",
     "ts-node": "^10.9.2",

@@ -1,15 +1,34 @@
 export interface DashboardMetrics {
-  merchantName: string;
   todayRevenue: number;
   revenueChangePct: number;
   eveningDropPct: number;
-  dormantCustomersCount: number;
+  dormantCustomerCount: number;
+  activeCampaign: CampaignProposal | null;
 }
 
-export interface RecommendationPayload {
+export type CampaignStatus = 'proposed' | 'approved' | 'rejected' | 'active';
+
+export interface CampaignProposal {
+  id: string;
   title: string;
-  discount: string;
-  minOrder: string;
-  duration: string;
-  targetCount: number;
+  discountAmount: number;
+  minOrderValue: number;
+  targetCohortSize: number;
+  durationDays: number;
+  status: CampaignStatus;
+  approvedAt?: string;
+  activatedAt?: string;
+}
+
+export interface PolicyCheckResult {
+  isValid: boolean;
+  rules: { ruleName: string; passed: boolean; reason?: string }[];
+}
+
+export interface InvestigationResult {
+  reply: string;
+  findings: string[];
+  hasProposal: boolean;
+  campaign?: CampaignProposal;
+  policyResult?: PolicyCheckResult;
 }
