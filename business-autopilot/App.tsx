@@ -343,17 +343,17 @@ export default function App() {
                 onSubmitEditing={() => void askAgent(question)}
               />
               <View style={styles.inputActions}>
-                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseImage(true)} accessibilityLabel="Take a photo" accessibilityRole="button">
-                  <Feather name="camera" size={18} color="#d4d4d8" />
+                <TouchableOpacity style={[styles.inputAction, styles.cameraAction]} onPress={() => void chooseImage(true)} accessibilityLabel="Take a photo" accessibilityRole="button">
+                  <Feather name="camera" size={18} color="#2563eb" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseImage(false)} accessibilityLabel="Choose a photo" accessibilityRole="button">
-                  <Feather name="image" size={18} color="#d4d4d8" />
+                <TouchableOpacity style={[styles.inputAction, styles.imageAction]} onPress={() => void chooseImage(false)} accessibilityLabel="Choose a photo" accessibilityRole="button">
+                  <Feather name="image" size={18} color="#059669" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseDocument()} accessibilityLabel="Attach a file" accessibilityRole="button">
-                  <Feather name="file-text" size={18} color="#d4d4d8" />
+                <TouchableOpacity style={[styles.inputAction, styles.documentAction]} onPress={() => void chooseDocument()} accessibilityLabel="Attach a file" accessibilityRole="button">
+                  <Feather name="file-text" size={18} color="#d97706" />
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.inputAction, recording && styles.recordingAction]} onPress={() => void toggleRecording()} accessibilityLabel={recording ? 'Stop voice recording' : 'Record a voice question'} accessibilityRole="button">
-                  {recording ? <Feather name="square" size={18} color="#ffffff" /> : <Feather name="mic" size={18} color="#d4d4d8" />}
+                <TouchableOpacity style={[styles.inputAction, !recording && styles.microphoneAction, recording && styles.recordingAction]} onPress={() => void toggleRecording()} accessibilityLabel={recording ? 'Stop voice recording' : 'Record a voice question'} accessibilityRole="button">
+                  {recording ? <Feather name="square" size={18} color="#ffffff" /> : <Feather name="mic" size={18} color="#e11d48" />}
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.sendButton} onPress={() => void askAgent(question)} accessibilityLabel="Send question" accessibilityRole="button">
                   <Feather name="send" size={18} color="#ffffff" />
@@ -764,6 +764,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cameraAction: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  imageAction: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+  },
+  documentAction: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  microphoneAction: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
   },
   recordingAction: {
     backgroundColor: '#991b1b',
