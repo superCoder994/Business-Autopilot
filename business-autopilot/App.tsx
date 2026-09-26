@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Speech from 'expo-speech';
 import { AudioModule, RecordingPresets, useAudioRecorder } from 'expo-audio';
+import { Feather } from '@expo/vector-icons';
 import {
   askAutopilotAgent,
   askAutopilotAgentWithAttachment,
@@ -27,16 +29,24 @@ export default function App() {
   const [revenue, setRevenue] = useState(18450);
   const [growth, setGrowth] = useState('↑ 4.2%');
   const [question, setQuestion] = useState('');
+  const [submittedQuestion, setSubmittedQuestion] = useState('');
   const [agentResponse, setAgentResponse] = useState<any>(null);
+  const [campaignOutcome, setCampaignOutcome] = useState<{
+    previousRevenue: number;
+    currentRevenue: number;
+    changePercent: number;
+    actionAt: string;
+  } | null>(null);
   const [attachment, setAttachment] = useState<{ uri: string; name: string; mimeType: string } | null>(null);
   const [recording, setRecording] = useState(false);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
-  const askAgent = async (prompt: string, file = attachment) => {
+  const askAgent = async (prompt: string, file: typeof attachment = attachment) => {
     const cleanPrompt = prompt.trim() || 'Give me a summary of my account, sales, and recommendations.';
     setModalVisible(true);
     setAgentStep('investigating');
-    setQuestion(cleanPrompt);
+    setSubmittedQuestion(cleanPrompt);
+    setQuestion('');
     const response = file
       ? await askAutopilotAgentWithAttachment(cleanPrompt, file)
       : await askAutopilotAgent(cleanPrompt);
@@ -44,8 +54,26 @@ export default function App() {
     setAgentStep('ready');
   };
 
-  const startInvestigation = () => {
-    void askAgent('Meri sales kyun gir rahi hain?');
+  const getSpeechLanguage = (text: string, responseLanguage?: string) => {
+    if (responseLanguage && responseLanguage !== 'auto') return responseLanguage;
+    if (/[\u0c00-\u0c7f]/.test(text)) return 'te-IN';
+    if (/[\u0c80-\u0cff]/.test(text)) return 'kn-IN';
+    if (/[\u0900-\u097f]/.test(text)) return 'hi-IN';
+    return 'en-IN';
+  };
+
+  const readAnswerAloud = (answer: string, language?: string) => {
+    void Speech.stop();
+    void Speech.speak(answer, { language: getSpeechLanguage(submittedQuestion, language) });
+  };
+
+  const openAgent = () => {
+    setModalVisible(true);
+    setAgentStep('idle');
+    setQuestion('');
+    setSubmittedQuestion('');
+    setAgentResponse(null);
+    setAttachment(null);
   };
 
   const chooseImage = async (useCamera: boolean) => {
@@ -74,7 +102,6 @@ export default function App() {
         const transcript = await transcribeVoice(audioRecorder.uri);
         if (transcript) {
           setQuestion(transcript);
-          void askAgent(transcript);
         } else {
           Alert.alert('Voice input unavailable', 'The transcription service did not return text.');
         }
@@ -92,10 +119,23 @@ export default function App() {
   };
 
   const handleApprove = () => {
+    const previousRevenue = revenue;
+    const currentRevenue = 21450;
+    const changePercent = Number((((currentRevenue - previousRevenue) / previousRevenue) * 100).toFixed(1));
+    const actionAt = new Date();
+    const formattedDate = actionAt.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    const formattedTime = actionAt.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).replace(' ', '');
     setAgentStep('approved');
-    // Simulate real-time campaign impact
-    setRevenue(21450);
-    setGrowth('↑ 20.5% 🚀');
+    setRevenue(currentRevenue);
+    setGrowth(`↑ ${changePercent}%`);
+    setCampaignOutcome({ previousRevenue, currentRevenue, changePercent, actionAt: `${formattedDate}, ${formattedTime}` });
   };
 
   const resetFlow = () => {
@@ -104,6 +144,7 @@ export default function App() {
     setAgentResponse(null);
     setAttachment(null);
     setQuestion('');
+    setSubmittedQuestion('');
   };
 
   return (
@@ -112,8 +153,18 @@ export default function App() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.tagline}>BUSINESS AUTOPILOT</Text>
-        <Text style={styles.title}>Good morning, Sharma Ji 👋</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.tagline}>BUSINESS AUTOPILOT</Text>
+          <Text style={styles.title}>Good morning, Sharma Ji 👋</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.chatButton}
+          onPress={openAgent}
+          accessibilityRole="button"
+          accessibilityLabel="Chat with the account agent"
+        >
+          <Feather name="message-circle" size={21} color="#ffffff" />
+        </TouchableOpacity>
       </View>
 
       {/* Revenue Card */}
@@ -127,7 +178,39 @@ export default function App() {
         </View>
       </View>
 
-      {/* AI Detected Alert Card */}
+      {campaignOutcome ? (
+        <>
+          <View style={styles.outcomeCard}>
+            <View style={styles.alertHeader}>
+              <Feather name="trending-up" size={18} color="#34d399" />
+              <Text style={styles.outcomeTitle}>AI DETECTION UPDATED</Text>
+            </View>
+            <Text style={styles.outcomeHeadline}>
+              Campaign impact: +{campaignOutcome.changePercent}% revenue
+            </Text>
+            <Text style={styles.outcomeDetail}>
+              Revenue moved from ₹{campaignOutcome.previousRevenue.toLocaleString('en-IN')} to ₹{campaignOutcome.currentRevenue.toLocaleString('en-IN')}.
+            </Text>
+            <View style={styles.outcomeActionBox}>
+              <Text style={styles.outcomeActionLabel}>ACTION TAKEN</Text>
+              <Text style={styles.outcomeAction}>₹50 OFF push notification sent to 83 dormant customers for 3 days, 6 PM - 9 PM.</Text>
+            </View>
+            <Text style={styles.outcomeTimestamp}>AI detection updated {campaignOutcome.actionAt}</Text>
+          </View>
+
+          <View style={[styles.alertCard, styles.resolvedAlertCard]}>
+            <View style={styles.alertHeader}>
+              <Feather name="check-circle" size={17} color="#a1a1aa" />
+              <Text style={styles.resolvedAlertTitle}>PREVIOUS DETECTION • RESOLVED</Text>
+            </View>
+            <Text style={styles.resolvedAlertText}>Evening sales were down 19% and 83 customers were dormant.</Text>
+            <Text style={styles.resolvedActionLabel}>ACTION TAKEN</Text>
+            <Text style={styles.resolvedActionText}>₹50 OFF push notification sent to 83 dormant customers for 3 days, 6 PM - 9 PM.</Text>
+            <Text style={styles.resolvedTimestamp}>Action taken {campaignOutcome.actionAt}</Text>
+          </View>
+        </>
+      ) : (
+      /* AI Detected Alert Card */
       <View style={styles.alertCard}>
         <View style={styles.alertHeader}>
           <Text style={styles.alertIcon}>⚠️</Text>
@@ -141,14 +224,34 @@ export default function App() {
           <Text style={styles.alertItem}>• 83 dormant customers</Text>
         </View>
 
+        <View style={styles.quickPromptRow}>
+          {[
+            'Why are evening sales down?',
+            'Show my top-selling items',
+            'How can I re-engage dormant customers?',
+          ].map((prompt) => (
+            <TouchableOpacity
+              key={prompt}
+              style={styles.quickPrompt}
+              onPress={() => void askAgent(prompt, null)}
+              accessibilityRole="button"
+              accessibilityLabel={prompt}
+            >
+              <Text style={styles.quickPromptText}>{prompt}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={startInvestigation}
+          onPress={openAgent}
           activeOpacity={0.8}
         >
-          <Text style={styles.actionButtonText}>✨ Ask AI</Text>
+          <Feather name="zap" size={18} color="#ffffff" />
+          <Text style={styles.actionButtonText}>Ask AI</Text>
         </TouchableOpacity>
       </View>
+      )}
 
       {/* Active Campaign Badge (Appears once approved) */}
       {agentStep === 'approved' && (
@@ -166,8 +269,8 @@ export default function App() {
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>🤖 Autopilot Agent</Text>
-              <TouchableOpacity onPress={resetFlow}>
-                <Text style={styles.closeBtn}>✕</Text>
+              <TouchableOpacity onPress={resetFlow} accessibilityLabel="Close agent" accessibilityRole="button">
+                <Feather name="x" size={22} color="#a1a1aa" />
               </TouchableOpacity>
             </View>
 
@@ -180,38 +283,48 @@ export default function App() {
                 style={styles.questionInput}
                 multiline
                 maxLength={500}
+                submitBehavior="submit"
                 onSubmitEditing={() => void askAgent(question)}
               />
               <View style={styles.inputActions}>
-                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseImage(true)}>
-                  <Text style={styles.inputActionText}>Camera</Text>
+                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseImage(true)} accessibilityLabel="Take a photo" accessibilityRole="button">
+                  <Feather name="camera" size={18} color="#d4d4d8" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseImage(false)}>
-                  <Text style={styles.inputActionText}>Photo</Text>
+                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseImage(false)} accessibilityLabel="Choose a photo" accessibilityRole="button">
+                  <Feather name="image" size={18} color="#d4d4d8" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseDocument()}>
-                  <Text style={styles.inputActionText}>File</Text>
+                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseDocument()} accessibilityLabel="Attach a file" accessibilityRole="button">
+                  <Feather name="file-text" size={18} color="#d4d4d8" />
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.inputAction, recording && styles.recordingAction]} onPress={() => void toggleRecording()}>
-                  <Text style={styles.inputActionText}>{recording ? 'Stop' : 'Voice'}</Text>
+                <TouchableOpacity style={[styles.inputAction, recording && styles.recordingAction]} onPress={() => void toggleRecording()} accessibilityLabel={recording ? 'Stop voice recording' : 'Record a voice question'} accessibilityRole="button">
+                  {recording ? <Feather name="square" size={18} color="#ffffff" /> : <Feather name="mic" size={18} color="#d4d4d8" />}
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.sendButton} onPress={() => void askAgent(question)}>
-                  <Text style={styles.sendButtonText}>Send</Text>
+                <TouchableOpacity style={styles.sendButton} onPress={() => void askAgent(question)} accessibilityLabel="Send question" accessibilityRole="button">
+                  <Feather name="send" size={18} color="#ffffff" />
                 </TouchableOpacity>
               </View>
               {attachment && (
-                <Text style={styles.attachmentText}>Attached: {attachment.name}</Text>
+                <View style={styles.attachmentRow}>
+                  <Feather name="paperclip" size={13} color="#a5b4fc" />
+                  <Text style={styles.attachmentText}>{attachment.name}</Text>
+                </View>
               )}
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {question ? (
+              {submittedQuestion ? (
                 <View style={styles.userBubble}>
-                  <Text style={styles.userBubbleText}>"{question}"</Text>
+                  <Text style={styles.userBubbleText}>"{submittedQuestion}"</Text>
                 </View>
               ) : null}
 
-              {agentStep === 'investigating' ? (
+              {agentStep === 'idle' ? (
+                <View style={styles.emptyState}>
+                  <Feather name="zap" size={24} color="#818cf8" />
+                  <Text style={styles.emptyStateTitle}>What would you like to know?</Text>
+                  <Text style={styles.emptyStateText}>Ask about your account, transactions, sales, or recommendations.</Text>
+                </View>
+              ) : agentStep === 'investigating' ? (
                 <View style={styles.loadingBox}>
                   <ActivityIndicator size="large" color="#6366f1" />
                   <Text style={styles.loadingText}>Calling Analytics Engine tools...</Text>
@@ -221,7 +334,16 @@ export default function App() {
                 <>
                   {agentResponse?.reply && (
                     <View style={styles.answerCard}>
-                      <Text style={styles.answerHeader}>AGENT ANSWER</Text>
+                      <View style={styles.answerHeaderRow}>
+                        <Text style={styles.answerHeader}>AGENT ANSWER</Text>
+                        <TouchableOpacity
+                          onPress={() => readAnswerAloud(agentResponse.reply, agentResponse.language)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Read answer aloud"
+                        >
+                          <Feather name="volume-2" size={18} color="#bfdbfe" />
+                        </TouchableOpacity>
+                      </View>
                       <Text style={styles.answerText}>{agentResponse.reply}</Text>
                     </View>
                   )}
@@ -293,7 +415,24 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 24,
+  },
+  headerCopy: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  chatButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#27272a',
+    borderWidth: 1,
+    borderColor: '#3f3f46',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tagline: {
     color: '#71717a',
@@ -348,6 +487,89 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#451a1a',
   },
+  outcomeCard: {
+    backgroundColor: '#052e16',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#059669',
+    marginBottom: 12,
+  },
+  outcomeTitle: {
+    color: '#34d399',
+    fontWeight: '800',
+    fontSize: 13,
+    letterSpacing: 1,
+  },
+  outcomeHeadline: {
+    color: '#ecfdf5',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  outcomeDetail: {
+    color: '#a7f3d0',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  outcomeAction: {
+    color: '#d1fae5',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  outcomeActionBox: {
+    backgroundColor: '#064e3b',
+    borderColor: '#10b981',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  outcomeActionLabel: {
+    color: '#6ee7b7',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 5,
+  },
+  outcomeTimestamp: {
+    color: '#a7f3d0',
+    fontSize: 12,
+  },
+  resolvedAlertCard: {
+    opacity: 0.65,
+    marginBottom: 16,
+  },
+  resolvedAlertTitle: {
+    color: '#a1a1aa',
+    fontWeight: '800',
+    fontSize: 12,
+    letterSpacing: 0.8,
+  },
+  resolvedAlertText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  resolvedActionLabel: {
+    color: '#a1a1aa',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+    marginBottom: 4,
+  },
+  resolvedActionText: {
+    color: '#d4d4d8',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 8,
+  },
+  resolvedTimestamp: {
+    color: '#a1a1aa',
+    fontSize: 12,
+  },
   alertHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -367,6 +589,23 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 6,
   },
+  quickPromptRow: {
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  quickPrompt: {
+    backgroundColor: '#292524',
+    borderColor: '#57534e',
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  quickPromptText: {
+    color: '#d6d3d1',
+    fontSize: 13,
+  },
   alertItem: {
     color: '#e4e4e7',
     fontSize: 15,
@@ -380,6 +619,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
     paddingVertical: 14,
     borderRadius: 12,
   },
@@ -446,11 +686,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   inputAction: {
+    width: 36,
+    height: 36,
     borderWidth: 1,
     borderColor: '#52525b',
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   recordingAction: {
     backgroundColor: '#991b1b',
@@ -476,7 +718,7 @@ const styles = StyleSheet.create({
   attachmentText: {
     color: '#a5b4fc',
     fontSize: 11,
-    marginTop: 7,
+    marginLeft: 4,
   },
   closeBtn: {
     color: '#a1a1aa',
@@ -497,6 +739,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontStyle: 'italic',
   },
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 7,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 44,
+  },
+  emptyStateTitle: {
+    color: '#f4f4f5',
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  emptyStateText: {
+    color: '#a1a1aa',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
   answerCard: {
     backgroundColor: '#172554',
     borderColor: '#3b82f6',
@@ -511,6 +776,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
     marginBottom: 7,
+  },
+  answerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   answerText: {
     color: '#eff6ff',

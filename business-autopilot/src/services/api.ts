@@ -7,7 +7,7 @@ export const fetchBusinessMetrics = async () => {
     if (!res.ok) throw new Error('Metrics API failed');
     return await res.json();
   } catch (err) {
-    console.warn('Backend unavailable, using fallback metrics');
+    console.info('Backend unavailable, using fallback metrics');
     return {
       merchantName: 'Sharma Ji',
       todayRevenue: 18450,
@@ -18,17 +18,17 @@ export const fetchBusinessMetrics = async () => {
   }
 };
 
-export const askAutopilotAgent = async (userPrompt: string) => {
+export const askAutopilotAgent = async (userPrompt: string, language = 'auto') => {
   try {
     const res = await fetch(`${BASE_URL}/investigations/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: userPrompt }),
+      body: JSON.stringify({ query: userPrompt, language, responseLanguage: 'match' }),
     });
     if (!res.ok) throw new Error('Agent API failed');
     return await res.json();
   } catch (err) {
-    console.warn('Backend unavailable, generating deterministic agent response');
+    console.info('Backend unavailable, generating deterministic agent response');
     const lower = userPrompt.toLowerCase();
     
     // Deterministic intelligence based on keywords
@@ -94,6 +94,8 @@ export const askAutopilotAgentWithAttachment = async (
     name: attachment.name,
     type: attachment.mimeType,
   } as unknown as Blob);
+  body.append('language', 'auto');
+  body.append('responseLanguage', 'match');
 
   try {
     const res = await fetch(`${BASE_URL}/investigations/run`, {
@@ -103,7 +105,7 @@ export const askAutopilotAgentWithAttachment = async (
     if (!res.ok) throw new Error('Agent attachment API failed');
     return await res.json();
   } catch (err) {
-    console.warn('Attachment analysis unavailable, using text agent response');
+    console.info('Attachment analysis unavailable, using text agent response');
     return askAutopilotAgent(userPrompt || `Analyze ${attachment.name}`);
   }
 };
@@ -115,6 +117,7 @@ export const transcribeVoice = async (audioUri: string) => {
     name: 'voice-question.m4a',
     type: 'audio/m4a',
   } as unknown as Blob);
+  body.append('language', 'auto');
 
   try {
     const res = await fetch(`${BASE_URL}/transcriptions`, {
@@ -125,7 +128,7 @@ export const transcribeVoice = async (audioUri: string) => {
     const data = await res.json();
     return data.text as string;
   } catch (err) {
-    console.warn('Voice transcription unavailable');
+    console.info('Voice transcription unavailable');
     return '';
   }
 };

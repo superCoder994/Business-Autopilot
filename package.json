@@ -6,8 +6,9 @@
     "expo-document-picker": "^57.0.2",
     "expo-image-picker": "^57.0.20",
     "express": "^5.2.1",
+    "expo-speech": "~57.0.3",
     "lucide-react-native": "^1.48.0",
-    "react-native-svg": "15.15.4"
+    "react-native-svg": "^15.15.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
