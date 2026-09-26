@@ -6,6 +6,20 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Business Autopilot to record voice questions."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Business Autopilot to capture business documents and bills."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true
     },

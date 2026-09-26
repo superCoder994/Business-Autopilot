@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,93 +9,101 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  TextInput,
+  Alert,
 } from 'react-native';
-import { fetchBusinessMetrics, runInvestigation, proposeCampaign } from './src/services/api';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { AudioModule, RecordingPresets, useAudioRecorder } from 'expo-audio';
+import {
+  askAutopilotAgent,
+  askAutopilotAgentWithAttachment,
+  transcribeVoice,
+} from './src/services/api';
 
 export default function App() {
-  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [agentStep, setAgentStep] = useState<'idle' | 'investigating' | 'ready' | 'approved'>('idle');
-
-  // Dashboard state
-  const [merchantName, setMerchantName] = useState('Sharma Ji');
   const [revenue, setRevenue] = useState(18450);
   const [growth, setGrowth] = useState('↑ 4.2%');
-  const [eveningDrop, setEveningDrop] = useState(19);
-  const [dormantCount, setDormantCount] = useState(83);
+  const [question, setQuestion] = useState('');
+  const [agentResponse, setAgentResponse] = useState<any>(null);
+  const [attachment, setAttachment] = useState<{ uri: string; name: string; mimeType: string } | null>(null);
+  const [recording, setRecording] = useState(false);
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
-  // Investigation & Proposal State
-  const [facts, setFacts] = useState<string[]>([]);
-  const [checks, setChecks] = useState<string[]>([]);
-  const [proposal, setProposal] = useState<{ title: string; discount: string; minOrder: string; duration: string } | null>(null);
-
-  // Initial load: Fetch metrics from API
-  useEffect(() => {
-    loadMetrics();
-  }, []);
-
-  const loadMetrics = async () => {
-    setLoading(true);
-    const data = await fetchBusinessMetrics();
-    if (data) {
-      if (data.merchantName) setMerchantName(data.merchantName);
-      if (data.todayRevenue) setRevenue(data.todayRevenue);
-      if (data.revenueChangePct) setGrowth(`↑ ${data.revenueChangePct}%`);
-      if (data.eveningDropPct) setEveningDrop(data.eveningDropPct);
-      if (data.dormantCustomersCount) setDormantCount(data.dormantCustomersCount);
-    }
-    setLoading(false);
-  };
-
-  const handleAskAI = async () => {
+  const askAgent = async (prompt: string, file = attachment) => {
+    const cleanPrompt = prompt.trim() || 'Give me a summary of my account, sales, and recommendations.';
     setModalVisible(true);
     setAgentStep('investigating');
-
-    // Call Endpoints 2 & 3 in parallel
-    const [investigationData, proposalData] = await Promise.all([
-      runInvestigation(),
-      proposeCampaign(),
-    ]);
-
-    // Populate investigation findings
-    if (investigationData?.findings) {
-      setFacts(investigationData.findings);
-    } else {
-      setFacts([
-        `• Evening revenue drop: -${eveningDrop}% (6:00 PM – 9:00 PM)`,
-        `• ${dormantCount} repeat customers inactive for >21 days`,
-      ]);
-    }
-
-    // Populate proposal & policy checks
-    if (proposalData) {
-      setProposal({
-        title: proposalData.title || '"We miss you" Push Notification',
-        discount: proposalData.discount || '₹50 OFF',
-        minOrder: proposalData.minOrder || '₹299',
-        duration: proposalData.duration || '3 days (6 PM - 9 PM)',
-      });
-      setChecks(
-        proposalData.policyChecks || [
-          '✓ Discount ₹50 within ≤20% ceiling',
-          '✓ Min order ₹299 covers food margin',
-          '✓ Audience: 83 dormant diners only',
-        ]
-      );
-    }
-
+    setQuestion(cleanPrompt);
+    const response = file
+      ? await askAutopilotAgentWithAttachment(cleanPrompt, file)
+      : await askAutopilotAgent(cleanPrompt);
+    setAgentResponse(response);
     setAgentStep('ready');
+  };
+
+  const startInvestigation = () => {
+    void askAgent('Meri sales kyun gir rahi hain?');
+  };
+
+  const chooseImage = async (useCamera: boolean) => {
+    const result = useCamera
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    if (!result.canceled && result.assets[0]) {
+      const image = result.assets[0];
+      setAttachment({ uri: image.uri, name: 'business-image.jpg', mimeType: image.mimeType || 'image/jpeg' });
+    }
+  };
+
+  const chooseDocument = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'text/*', 'application/*'], copyToCacheDirectory: true });
+    if (!result.canceled && result.assets[0]) {
+      const document = result.assets[0];
+      setAttachment({ uri: document.uri, name: document.name, mimeType: document.mimeType || 'application/octet-stream' });
+    }
+  };
+
+  const toggleRecording = async () => {
+    if (recording) {
+      await audioRecorder.stop();
+      setRecording(false);
+      if (audioRecorder.uri) {
+        const transcript = await transcribeVoice(audioRecorder.uri);
+        if (transcript) {
+          setQuestion(transcript);
+          void askAgent(transcript);
+        } else {
+          Alert.alert('Voice input unavailable', 'The transcription service did not return text.');
+        }
+      }
+      return;
+    }
+    const permission = await AudioModule.requestRecordingPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Microphone permission needed', 'Allow microphone access to ask the agent by voice.');
+      return;
+    }
+    await audioRecorder.prepareToRecordAsync();
+    audioRecorder.record();
+    setRecording(true);
   };
 
   const handleApprove = () => {
     setAgentStep('approved');
-    setRevenue((prev) => prev + 3000);
+    // Simulate real-time campaign impact
+    setRevenue(21450);
     setGrowth('↑ 20.5% 🚀');
   };
 
   const resetFlow = () => {
     setModalVisible(false);
     setAgentStep('idle');
+    setAgentResponse(null);
+    setAttachment(null);
+    setQuestion('');
   };
 
   return (
@@ -105,7 +113,7 @@ export default function App() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.tagline}>BUSINESS AUTOPILOT</Text>
-        <Text style={styles.title}>Good morning, {merchantName} 👋</Text>
+        <Text style={styles.title}>Good morning, Sharma Ji 👋</Text>
       </View>
 
       {/* Revenue Card */}
@@ -128,30 +136,30 @@ export default function App() {
 
         <View style={styles.alertContent}>
           <Text style={styles.alertItem}>
-            • Evening sales <Text style={styles.negative}>↓{eveningDrop}%</Text>
+            • Evening sales <Text style={styles.negative}>↓19%</Text>
           </Text>
-          <Text style={styles.alertItem}>• {dormantCount} dormant customers</Text>
+          <Text style={styles.alertItem}>• 83 dormant customers</Text>
         </View>
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={handleAskAI}
+          onPress={startInvestigation}
           activeOpacity={0.8}
         >
           <Text style={styles.actionButtonText}>✨ Ask AI</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Active Campaign Indicator */}
+      {/* Active Campaign Badge (Appears once approved) */}
       {agentStep === 'approved' && (
         <View style={styles.activeBanner}>
           <Text style={styles.activeBannerText}>
-            🟢 CAMPAIGN ACTIVE: ₹50 OFF sent to {dormantCount} customers
+            🟢 CAMPAIGN ACTIVE: ₹50 OFF sent to 83 customers
           </Text>
         </View>
       )}
 
-      {/* Agent Modal */}
+      {/* Agent Modal / Drawer */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -163,45 +171,89 @@ export default function App() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.userBubble}>
-                <Text style={styles.userBubbleText}>"Meri sales kyun gir rahi hain?"</Text>
+            <View style={styles.composer}>
+              <TextInput
+                value={question}
+                onChangeText={setQuestion}
+                placeholder="Ask about sales, transactions, or recommendations..."
+                placeholderTextColor="#71717a"
+                style={styles.questionInput}
+                multiline
+                maxLength={500}
+                onSubmitEditing={() => void askAgent(question)}
+              />
+              <View style={styles.inputActions}>
+                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseImage(true)}>
+                  <Text style={styles.inputActionText}>Camera</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseImage(false)}>
+                  <Text style={styles.inputActionText}>Photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.inputAction} onPress={() => void chooseDocument()}>
+                  <Text style={styles.inputActionText}>File</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.inputAction, recording && styles.recordingAction]} onPress={() => void toggleRecording()}>
+                  <Text style={styles.inputActionText}>{recording ? 'Stop' : 'Voice'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.sendButton} onPress={() => void askAgent(question)}>
+                  <Text style={styles.sendButtonText}>Send</Text>
+                </TouchableOpacity>
               </View>
+              {attachment && (
+                <Text style={styles.attachmentText}>Attached: {attachment.name}</Text>
+              )}
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {question ? (
+                <View style={styles.userBubble}>
+                  <Text style={styles.userBubbleText}>"{question}"</Text>
+                </View>
+              ) : null}
 
               {agentStep === 'investigating' ? (
                 <View style={styles.loadingBox}>
                   <ActivityIndicator size="large" color="#6366f1" />
-                  <Text style={styles.loadingText}>Running /investigations/run...</Text>
-                  <Text style={styles.loadingSubtext}>Evaluating POS transactions</Text>
+                  <Text style={styles.loadingText}>Calling Analytics Engine tools...</Text>
+                  <Text style={styles.loadingSubtext}>getEveningSales() • getDormantCustomers()</Text>
                 </View>
               ) : (
                 <>
-                  {/* Verified Facts */}
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionHeader}>🔍 VERIFIED FACTS (API)</Text>
-                    {facts.map((item, idx) => (
-                      <Text key={idx} style={styles.factText}>{item}</Text>
-                    ))}
-                  </View>
-
-                  {/* Policy Engine Verification */}
-                  <View style={styles.policyCard}>
-                    <Text style={styles.policyHeader}>🛡️ POLICY ENGINE VERIFICATION</Text>
-                    {checks.map((item, idx) => (
-                      <Text key={idx} style={styles.policyCheck}>{item}</Text>
-                    ))}
-                  </View>
-
-                  {/* Proposed Campaign */}
-                  {proposal && (
-                    <View style={styles.recommendCard}>
-                      <Text style={styles.recommendHeader}>💡 PROPOSED CAMPAIGN</Text>
-                      <Text style={styles.recommendTitle}>{proposal.title}</Text>
-                      <Text style={styles.recommendDetail}>Offer: {proposal.discount} on orders above {proposal.minOrder}</Text>
-                      <Text style={styles.recommendDetail}>Validity: {proposal.duration}</Text>
+                  {agentResponse?.reply && (
+                    <View style={styles.answerCard}>
+                      <Text style={styles.answerHeader}>AGENT ANSWER</Text>
+                      <Text style={styles.answerText}>{agentResponse.reply}</Text>
                     </View>
                   )}
 
+                  {/* Step 1: Investigation Findings */}
+                  <View style={styles.sectionCard}>
+                    <Text style={styles.sectionHeader}>🔍 VERIFIED FACTS</Text>
+                    {(agentResponse?.findings || [
+                      'Evening revenue drop: -19% (6:00 PM – 9:00 PM)',
+                      '83 repeat customers inactive for >21 days',
+                    ]).map((finding: string) => (
+                      <Text style={styles.factText} key={finding}>• {finding}</Text>
+                    ))}
+                  </View>
+
+                  {/* Step 2: Policy Engine Verification */}
+                  <View style={styles.policyCard}>
+                    <Text style={styles.policyHeader}>🛡️ POLICY ENGINE VERIFICATION</Text>
+                    <Text style={styles.policyCheck}>✓ Discount ₹50 within ≤20% ceiling</Text>
+                    <Text style={styles.policyCheck}>✓ Min order ₹299 covers food margin</Text>
+                    <Text style={styles.policyCheck}>✓ Audience: 83 dormant diners only</Text>
+                  </View>
+
+                  {/* Step 3: Recommendation / Action */}
+                  <View style={styles.recommendCard}>
+                    <Text style={styles.recommendHeader}>💡 PROPOSED CAMPAIGN</Text>
+                    <Text style={styles.recommendTitle}>"We miss you" Push Notification</Text>
+                    <Text style={styles.recommendDetail}>Offer: ₹50 OFF on orders above ₹299</Text>
+                    <Text style={styles.recommendDetail}>Validity: 3 days (6 PM - 9 PM)</Text>
+                  </View>
+
+                  {/* Action / Approval Buttons */}
                   {agentStep === 'ready' && (
                     <TouchableOpacity
                       style={styles.approveButton}
@@ -216,7 +268,7 @@ export default function App() {
                     <View style={styles.successBox}>
                       <Text style={styles.successTitle}>✓ CAMPAIGN DISPATCHED</Text>
                       <Text style={styles.successDesc}>
-                        Push notification sent to {dormantCount} target diners.
+                        83 notifications pushed. Simulated sales spike triggered.
                       </Text>
                       <TouchableOpacity style={styles.doneBtn} onPress={resetFlow}>
                         <Text style={styles.doneBtnText}>View Dashboard</Text>
@@ -373,6 +425,59 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  composer: {
+    backgroundColor: '#27272a',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  questionInput: {
+    color: '#ffffff',
+    minHeight: 44,
+    maxHeight: 90,
+    fontSize: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  inputActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  inputAction: {
+    borderWidth: 1,
+    borderColor: '#52525b',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+  },
+  recordingAction: {
+    backgroundColor: '#991b1b',
+    borderColor: '#ef4444',
+  },
+  inputActionText: {
+    color: '#d4d4d8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sendButton: {
+    backgroundColor: '#4f46e5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginLeft: 'auto',
+  },
+  sendButtonText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  attachmentText: {
+    color: '#a5b4fc',
+    fontSize: 11,
+    marginTop: 7,
+  },
   closeBtn: {
     color: '#a1a1aa',
     fontSize: 20,
@@ -391,6 +496,26 @@ const styles = StyleSheet.create({
     color: '#e4e4e7',
     fontSize: 14,
     fontStyle: 'italic',
+  },
+  answerCard: {
+    backgroundColor: '#172554',
+    borderColor: '#3b82f6',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  answerHeader: {
+    color: '#93c5fd',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 7,
+  },
+  answerText: {
+    color: '#eff6ff',
+    fontSize: 14,
+    lineHeight: 20,
   },
   loadingBox: {
     alignItems: 'center',
@@ -423,6 +548,14 @@ const styles = StyleSheet.create({
     color: '#d4d4d8',
     fontSize: 14,
     marginBottom: 4,
+  },
+  boldRed: {
+    color: '#ef4444',
+    fontWeight: '700',
+  },
+  boldWhite: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   policyCard: {
     backgroundColor: '#0c2e1f',
@@ -514,3 +647,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
+

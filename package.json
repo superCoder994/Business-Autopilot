@@ -1,6 +1,9 @@
 {
   "dependencies": {
     "expo": "^57.0.25",
+    "expo-audio": "^57.0.5",
+    "expo-document-picker": "^57.0.2",
+    "expo-image-picker": "^57.0.20",
     "lucide-react-native": "^1.48.0",
     "react-native-svg": "15.15.4"
   },
