@@ -1,14 +1,27 @@
 {
   "dependencies": {
+    "cors": "^2.8.6",
     "expo": "^57.0.25",
     "expo-audio": "^57.0.5",
     "expo-document-picker": "^57.0.2",
     "expo-image-picker": "^57.0.20",
+    "express": "^5.2.1",
     "lucide-react-native": "^1.48.0",
     "react-native-svg": "15.15.4"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.3",
     "@types/react": "~19.2.4",
-    "typescript": "~6.0.3"
+    "ts-node": "^10.9.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "scripts": {
+    "dev": "tsx src/backend/server.ts",
+    "start": "tsx src/backend/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test:api": "tsx src/backend/testApi.ts"
   }
 }
