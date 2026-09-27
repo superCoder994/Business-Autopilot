@@ -214,6 +214,11 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      <ScrollView
+        style={styles.dashboardScroll}
+        contentContainerStyle={styles.dashboardContent}
+        showsVerticalScrollIndicator={false}
+      >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerCopy}>
@@ -363,6 +368,7 @@ export default function App() {
           </Text>
         </View>
       )}
+      </ScrollView>
       {/* Agent Modal / Drawer */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
@@ -528,6 +534,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7faff',
     paddingHorizontal: 20,
     paddingTop: 50,
+  },
+  dashboardScroll: {
+    flex: 1,
+  },
+  dashboardContent: {
+    paddingBottom: 24,
   },
   header: {
     flexDirection: 'row',
