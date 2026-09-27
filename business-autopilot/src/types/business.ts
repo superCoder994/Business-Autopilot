@@ -1,3 +1,11 @@
+export interface SalesAnomaly {
+  id: string;
+  type: 'sales_drop';
+  time: string;
+  description: string;
+  impactPercent: number;
+}
+
 export interface DashboardMetrics {
   todayRevenue: number;
   revenueChangePct: number;
@@ -5,6 +13,7 @@ export interface DashboardMetrics {
   eveningDropPct: number;
   dormantCustomerCount: number;
   activeCampaign: CampaignProposal | null;
+  anomalies: SalesAnomaly[];
 }
 
 export interface RevenueWindow {

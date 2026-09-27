@@ -30,6 +30,14 @@ export interface CampaignProposal {
   activatedAt?: string;
 }
 
+export interface SalesAnomaly {
+  id: string;
+  type: 'sales_drop';
+  time: string;
+  description: string;
+  impactPercent: number;
+}
+
 export interface BusinessState {
   todayRevenue: number;
   revenueChangePct: number;
@@ -37,6 +45,7 @@ export interface BusinessState {
   eveningDropPct: number;
   dormantCustomerCount: number;
   activeCampaign: CampaignProposal | null;
+  anomalies: SalesAnomaly[];
 }
 
 export interface PolicyCheckResult {

@@ -4,6 +4,15 @@
   "revenueChangePct": 4.2,
   "eveningDropPct": 19,
   "dormantCustomersCount": 83,
+  "anomalies": [
+    {
+      "id": "anom_09_40_sales_drop",
+      "type": "sales_drop",
+      "time": "2026-09-27T09:40:00Z",
+      "description": "Fall in sales at 9:40",
+      "impactPercent": 31.6
+    }
+  ],
   "recommendation": {
     "title": "Evening Surge Campaign",
     "discount": "₹50 OFF",

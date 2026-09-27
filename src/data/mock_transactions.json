@@ -5,6 +5,7 @@
     { "id": "d03", "timestamp": "2026-09-27T04:00:00Z", "amount": 1300, "customerId": "c3" },
     { "id": "d04", "timestamp": "2026-09-27T06:00:00Z", "amount": 1700, "customerId": "c4" },
     { "id": "d05", "timestamp": "2026-09-27T08:00:00Z", "amount": 2200, "customerId": "c5" },
+    { "id": "d05b", "timestamp": "2026-09-27T09:40:00Z", "amount": 680, "customerId": "c5b" },
     { "id": "d06", "timestamp": "2026-09-27T10:00:00Z", "amount": 3000, "customerId": "c6" },
     { "id": "d07", "timestamp": "2026-09-27T12:00:00Z", "amount": 3900, "customerId": "c7" },
     { "id": "d08", "timestamp": "2026-09-27T14:00:00Z", "amount": 4700, "customerId": "c8" },
@@ -12,6 +13,15 @@
     { "id": "d10", "timestamp": "2026-09-27T18:00:00Z", "amount": 6400, "customerId": "c10" },
     { "id": "d11", "timestamp": "2026-09-27T20:00:00Z", "amount": 1800, "customerId": "c11" },
     { "id": "d12", "timestamp": "2026-09-27T22:00:00Z", "amount": 1100, "customerId": "c12" }
+  ],
+  "anomalies": [
+    {
+      "id": "anom_09_40_sales_drop",
+      "type": "sales_drop",
+      "time": "2026-09-27T09:40:00Z",
+      "description": "Fall in sales at 9:40",
+      "impactPercent": 31.6
+    }
   ],
   "previousDayRevenue": 30000,
   "baselineEveningSales": 10000,

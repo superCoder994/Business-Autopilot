@@ -46,7 +46,8 @@ export class AutopilotEngine {
       revenueByTwoHourWindow,
       eveningDropPct: dropPct,
       dormantCustomerCount,
-      activeCampaign
+      activeCampaign,
+      anomalies: Array.isArray(mockData.anomalies) ? mockData.anomalies : []
     };
   }
 

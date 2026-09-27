@@ -25,7 +25,7 @@ import {
   fetchBusinessMetrics,
   transcribeVoice,
 } from './src/services/api';
-import type { CampaignProposal, DashboardMetrics, InvestigationResult, RevenueWindow } from './src/types/business';
+import type { CampaignProposal, DashboardMetrics, InvestigationResult, RevenueWindow, SalesAnomaly } from './src/types/business';
 
 const formatTimestamp = (timestamp: string) => {
   const date = new Date(timestamp);
@@ -47,6 +47,7 @@ export default function App() {
   const [revenueWindows, setRevenueWindows] = useState<RevenueWindow[]>([]);
   const [eveningDropPct, setEveningDropPct] = useState<number | null>(null);
   const [dormantCustomerCount, setDormantCustomerCount] = useState<number | null>(null);
+  const [anomalies, setAnomalies] = useState<SalesAnomaly[]>([]);
   const [question, setQuestion] = useState('');
   const [submittedQuestion, setSubmittedQuestion] = useState('');
   const [submittedAttachment, setSubmittedAttachment] = useState<{ name: string; mimeType: string } | null>(null);
@@ -65,6 +66,7 @@ export default function App() {
   );
   const hasSalesDrop = eveningDropPct !== null && eveningDropPct > 0;
   const isSalesIncrease = eveningDropPct !== null && eveningDropPct < 0;
+  const primaryAnomaly = anomalies[0];
 
   useEffect(() => {
     let mounted = true;
@@ -74,6 +76,7 @@ export default function App() {
       setRevenueWindows(metrics.revenueByTwoHourWindow);
       setEveningDropPct(metrics.eveningDropPct);
       setDormantCustomerCount(metrics.dormantCustomerCount);
+      setAnomalies(metrics.anomalies ?? []);
       const change = metrics.revenueChangePct;
       setGrowth(change === 0 ? '—' : `${change > 0 ? '↑' : '↓'} ${Math.abs(change)}%`);
       if (metrics.activeCampaign?.status === 'active') {
@@ -275,6 +278,20 @@ export default function App() {
         </View>
         <Text style={styles.revenueChartCaption}>Sales rise through rush hour, then taper in the evening.</Text>
       </View>
+
+      {primaryAnomaly && (
+        <View style={styles.alertCard}>
+          <View style={styles.alertHeader}>
+            <Feather name="alert-triangle" size={20} color="#c2410c" />
+            <Text style={styles.alertTitle}>ANOMALY DETECTED</Text>
+          </View>
+          <View style={styles.alertContent}>
+            <Text style={styles.alertItem}>• {primaryAnomaly.description}</Text>
+            <Text style={styles.alertItem}>• Impact: {primaryAnomaly.impactPercent}%</Text>
+            <Text style={styles.alertItem}>• Detected at {new Date(primaryAnomaly.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</Text>
+          </View>
+        </View>
+      )}
 
       {campaignOutcome ? (
         <>
