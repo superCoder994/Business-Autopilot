@@ -1,10 +1,11 @@
 /** Express HTTP Server */
 
+import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import { autopilot } from './index';
-import { analyzeUploadedFile, ProviderServiceError, transcribeAudio } from './providerService';
+import { analyzeUploadedFile, generateAgentReply, ProviderServiceError, transcribeAudio } from './providerService';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -39,7 +40,9 @@ app.post('/api/v1/investigations/run', upload.single('file'), async (req: Reques
     }
 
     const result = await autopilot.investigateDrop(query);
-    if (req.file) result.reply = await analyzeUploadedFile(query, req.file);
+    result.reply = req.file
+      ? await analyzeUploadedFile(query, req.file)
+      : await generateAgentReply(query, result.findings);
     res.json({ success: true, data: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to run this investigation.';

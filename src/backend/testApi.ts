@@ -44,25 +44,32 @@ async function main() {
   await test('GET /business/metrics returns dashboard fields', async () => {
     const { response, body } = await request('/business/metrics');
     const metrics = body.data;
+    const windows = metrics?.revenueByTwoHourWindow;
     if (!response.ok || !body.success || typeof metrics?.todayRevenue !== 'number'
+      || typeof metrics?.revenueChangePct !== 'number'
       || typeof metrics?.eveningDropPct !== 'number'
       || typeof metrics?.dormantCustomerCount !== 'number'
-      || !('activeCampaign' in metrics)) {
+      || !('activeCampaign' in metrics)
+      || !Array.isArray(windows) || windows.length !== 12
+      || windows[9]?.startHour !== 18 || windows[9]?.amount <= windows[8]?.amount
+      || windows[10]?.amount >= windows[9]?.amount) {
       throw new Error('Metrics response does not match DashboardMetrics.');
     }
   });
 
-  await test('POST /investigations/run returns query-aware account facts', async () => {
-    const { response, body } = await request('/investigations/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: 'Why are evening sales down?' })
+  if (process.env.RUN_PROVIDER_INTEGRATION_TESTS === 'true') {
+    await test('POST /investigations/run returns a query-aware model response', async () => {
+      const { response, body } = await request('/investigations/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'Why are evening sales down?' })
+      });
+      if (!response.ok || !body.success || typeof body.data?.reply !== 'string'
+        || !Array.isArray(body.data?.findings) || body.data?.hasProposal !== true) {
+        throw new Error('Investigation response does not match the agent contract.');
+      }
     });
-    if (!response.ok || !body.success || typeof body.data?.reply !== 'string'
-      || !Array.isArray(body.data?.findings) || body.data?.hasProposal !== true) {
-      throw new Error('Investigation response does not match the agent contract.');
-    }
-  });
+  }
 
   await test('POST /investigations/run rejects an empty query', async () => {
     const { response, body } = await request('/investigations/run', {

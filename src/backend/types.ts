@@ -5,6 +5,11 @@ export interface Transaction {
   customerId: string;
 }
 
+export interface RevenueWindow {
+  startHour: number;
+  amount: number;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -28,6 +33,7 @@ export interface CampaignProposal {
 export interface BusinessState {
   todayRevenue: number;
   revenueChangePct: number;
+  revenueByTwoHourWindow: RevenueWindow[];
   eveningDropPct: number;
   dormantCustomerCount: number;
   activeCampaign: CampaignProposal | null;

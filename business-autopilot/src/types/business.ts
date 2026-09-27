@@ -1,9 +1,15 @@
 export interface DashboardMetrics {
   todayRevenue: number;
   revenueChangePct: number;
+  revenueByTwoHourWindow: RevenueWindow[];
   eveningDropPct: number;
   dormantCustomerCount: number;
   activeCampaign: CampaignProposal | null;
+}
+
+export interface RevenueWindow {
+  startHour: number;
+  amount: number;
 }
 
 export type CampaignStatus = 'proposed' | 'approved' | 'rejected' | 'active';

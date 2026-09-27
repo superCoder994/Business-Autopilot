@@ -1,10 +1,19 @@
 {
   "transactions": [
-    { "id": "t101", "timestamp": "2026-09-26T18:15:00Z", "amount": 2500, "customerId": "c1" },
-    { "id": "t102", "timestamp": "2026-09-26T18:45:00Z", "amount": 2420, "customerId": "c2" },
-    { "id": "t103", "timestamp": "2026-09-26T19:30:00Z", "amount": 1810, "customerId": "c3" },
-    { "id": "t104", "timestamp": "2026-09-26T20:10:00Z", "amount": 1370, "customerId": "c4" }
+    { "id": "d01", "timestamp": "2026-09-27T00:00:00Z", "amount": 750, "customerId": "c1" },
+    { "id": "d02", "timestamp": "2026-09-27T02:00:00Z", "amount": 950, "customerId": "c2" },
+    { "id": "d03", "timestamp": "2026-09-27T04:00:00Z", "amount": 1300, "customerId": "c3" },
+    { "id": "d04", "timestamp": "2026-09-27T06:00:00Z", "amount": 1700, "customerId": "c4" },
+    { "id": "d05", "timestamp": "2026-09-27T08:00:00Z", "amount": 2200, "customerId": "c5" },
+    { "id": "d06", "timestamp": "2026-09-27T10:00:00Z", "amount": 3000, "customerId": "c6" },
+    { "id": "d07", "timestamp": "2026-09-27T12:00:00Z", "amount": 3900, "customerId": "c7" },
+    { "id": "d08", "timestamp": "2026-09-27T14:00:00Z", "amount": 4700, "customerId": "c8" },
+    { "id": "d09", "timestamp": "2026-09-27T16:00:00Z", "amount": 5600, "customerId": "c9" },
+    { "id": "d10", "timestamp": "2026-09-27T18:00:00Z", "amount": 6400, "customerId": "c10" },
+    { "id": "d11", "timestamp": "2026-09-27T20:00:00Z", "amount": 1800, "customerId": "c11" },
+    { "id": "d12", "timestamp": "2026-09-27T22:00:00Z", "amount": 1100, "customerId": "c12" }
   ],
+  "previousDayRevenue": 30000,
   "baselineEveningSales": 10000,
   "customers": [
     { "id": "c1", "name": "Customer 1", "lastOrderTimestamp": "2026-08-01T10:00:00Z" },

@@ -25,7 +25,7 @@ import {
   fetchBusinessMetrics,
   transcribeVoice,
 } from './src/services/api';
-import type { CampaignProposal, DashboardMetrics, InvestigationResult } from './src/types/business';
+import type { CampaignProposal, DashboardMetrics, InvestigationResult, RevenueWindow } from './src/types/business';
 
 const formatTimestamp = (timestamp: string) => {
   const date = new Date(timestamp);
@@ -37,16 +37,19 @@ const formatTimestamp = (timestamp: string) => {
 
 const describeCampaignAction = (campaign: CampaignProposal) =>
   `₹${campaign.discountAmount} OFF on orders of ₹${campaign.minOrderValue} or more, activated for ${campaign.targetCohortSize} dormant customers for ${campaign.durationDays} days.`;
+const formatHour = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
 
 export default function App() {
   const [modalVisible, setModalVisible] = useState(false);
   const [agentStep, setAgentStep] = useState<'idle' | 'investigating' | 'ready' | 'approved'>('idle');
   const [revenue, setRevenue] = useState(0);
   const [growth, setGrowth] = useState('—');
+  const [revenueWindows, setRevenueWindows] = useState<RevenueWindow[]>([]);
   const [eveningDropPct, setEveningDropPct] = useState<number | null>(null);
   const [dormantCustomerCount, setDormantCustomerCount] = useState<number | null>(null);
   const [question, setQuestion] = useState('');
   const [submittedQuestion, setSubmittedQuestion] = useState('');
+  const [submittedAttachment, setSubmittedAttachment] = useState<{ name: string; mimeType: string } | null>(null);
   const [agentResponse, setAgentResponse] = useState<InvestigationResult | null>(null);
   const [campaignOutcome, setCampaignOutcome] = useState<{
     campaign: CampaignProposal;
@@ -55,12 +58,20 @@ export default function App() {
   const [attachment, setAttachment] = useState<{ uri: string; name: string; mimeType: string } | null>(null);
   const [recording, setRecording] = useState(false);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const maximumWindowRevenue = Math.max(1, ...revenueWindows.map(window => window.amount));
+  const peakRevenueWindow = revenueWindows.reduce(
+    (peak, window) => window.amount > peak.amount ? window : peak,
+    { startHour: 18, amount: 0 }
+  );
+  const hasSalesDrop = eveningDropPct !== null && eveningDropPct > 0;
+  const isSalesIncrease = eveningDropPct !== null && eveningDropPct < 0;
 
   useEffect(() => {
     let mounted = true;
     fetchBusinessMetrics().then((metrics: DashboardMetrics) => {
       if (!mounted) return;
       setRevenue(metrics.todayRevenue);
+      setRevenueWindows(metrics.revenueByTwoHourWindow);
       setEveningDropPct(metrics.eveningDropPct);
       setDormantCustomerCount(metrics.dormantCustomerCount);
       const change = metrics.revenueChangePct;
@@ -84,13 +95,14 @@ export default function App() {
     setModalVisible(true);
     setAgentStep('investigating');
     setSubmittedQuestion(cleanPrompt);
+    setSubmittedAttachment(file ? { name: file.name, mimeType: file.mimeType } : null);
     setQuestion('');
+    setAttachment(null);
     try {
       const response = file
         ? await askAutopilotAgentWithAttachment(cleanPrompt, file)
         : await askAutopilotAgent(cleanPrompt);
       setAgentResponse(response);
-      setAttachment(null);
       setAgentStep('ready');
     } catch (error) {
       setAgentStep('idle');
@@ -116,6 +128,7 @@ export default function App() {
     setAgentStep('idle');
     setQuestion('');
     setSubmittedQuestion('');
+    setSubmittedAttachment(null);
     setAgentResponse(null);
     setAttachment(null);
   };
@@ -195,12 +208,12 @@ export default function App() {
     setAttachment(null);
     setQuestion('');
     setSubmittedQuestion('');
+    setSubmittedAttachment(null);
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerCopy}>
@@ -229,14 +242,41 @@ export default function App() {
             <Feather name="bar-chart-2" size={32} color="#60a5fa" />
           </View>
         </View>
+        <View style={styles.revenueChartHeader}>
+          <Text style={styles.revenueChartTitle}>TODAY'S SALES · ₹ THOUSANDS</Text>
+          <Text style={styles.rushHourLabel}>RUSH HOUR {formatHour(peakRevenueWindow.startHour)}</Text>
+        </View>
+        <View style={styles.revenueChart}>
+          {revenueWindows.map((window, index) => {
+            const previousWindow = revenueWindows[index - 1];
+            const isFalling = previousWindow !== undefined && window.amount < previousWindow.amount;
+            return (
+              <View key={window.startHour} style={styles.revenueWindow}>
+                <View style={styles.revenueBarTrack}>
+                  <View
+                    style={[
+                      styles.revenueBar,
+                      { height: Math.max(5, Math.round((window.amount / maximumWindowRevenue) * 62)) },
+                      window.startHour === peakRevenueWindow.startHour && styles.peakRevenueBar,
+                      isFalling && styles.fallingRevenueBar,
+                    ]}
+                  />
+                </View>
+                <Text style={styles.revenueWindowHour}>{String(window.startHour).padStart(2, '0')}</Text>
+                <Text style={styles.revenueWindowAmount}>{(window.amount / 1000).toFixed(1)}</Text>
+              </View>
+            );
+          })}
+        </View>
+        <Text style={styles.revenueChartCaption}>Sales rise through rush hour, then taper in the evening.</Text>
       </View>
 
       {campaignOutcome ? (
         <>
           <View style={styles.outcomeCard}>
             <View style={styles.alertHeader}>
-              <Feather name="trending-up" size={18} color="#34d399" />
-              <Text style={styles.outcomeTitle}>AI DETECTION UPDATED</Text>
+              <Feather name="check-circle" size={18} color="#15803d" />
+              <Text style={styles.outcomeTitle}>CAMPAIGN SUCCESS</Text>
             </View>
             <Text style={styles.outcomeHeadline}>
               Campaign activated
@@ -248,13 +288,13 @@ export default function App() {
               <Text style={styles.outcomeActionLabel}>ACTION TAKEN</Text>
               <Text style={styles.outcomeAction}>{describeCampaignAction(campaignOutcome.campaign)}</Text>
             </View>
-            <Text style={styles.outcomeTimestamp}>AI detection updated {campaignOutcome.actionAt}</Text>
+            <Text style={styles.outcomeTimestamp}>Campaign activated {campaignOutcome.actionAt}</Text>
           </View>
 
           <View style={[styles.alertCard, styles.resolvedAlertCard]}>
             <View style={styles.alertHeader}>
               <Feather name="check-circle" size={17} color="#a1a1aa" />
-              <Text style={styles.resolvedAlertTitle}>PREVIOUS DETECTION • RESOLVED</Text>
+              <Text style={styles.resolvedAlertTitle}>DROP IN SALES • RESOLVED</Text>
             </View>
             <Text style={styles.resolvedAlertText}>Evening sales were down {eveningDropPct ?? '—'}% and {dormantCustomerCount ?? '—'} customers were dormant.</Text>
             <Text style={styles.resolvedActionLabel}>ACTION TAKEN</Text>
@@ -267,13 +307,19 @@ export default function App() {
       {/* AI Detected Alert Card */}
       <View style={styles.alertCard}>
         <View style={styles.alertHeader}>
-          <Feather name="alert-triangle" size={20} color="#ef4444" />
-          <Text style={styles.alertTitle}>AI DETECTED</Text>
+          <Feather
+            name={hasSalesDrop ? 'alert-triangle' : 'trending-up'}
+            size={20}
+            color={hasSalesDrop ? '#c2410c' : '#15803d'}
+          />
+          <Text style={[styles.alertTitle, isSalesIncrease && styles.alertIncreaseTitle]}>
+            {eveningDropPct === null ? 'SALES TREND' : hasSalesDrop ? 'DROP IN SALES' : eveningDropPct < 0 ? 'INCREASE IN SALES' : 'SALES ON TRACK'}
+          </Text>
         </View>
 
         <View style={styles.alertContent}>
           <Text style={styles.alertItem}>
-            • Evening sales <Text style={styles.negative}>{eveningDropPct === null ? '—' : `↓${eveningDropPct}%`}</Text>
+            • Evening sales <Text style={hasSalesDrop ? styles.negative : isSalesIncrease ? styles.positive : undefined}>{eveningDropPct === null ? '—' : `${eveningDropPct > 0 ? '↓' : isSalesIncrease ? '↑' : ''}${Math.abs(eveningDropPct)}%`}</Text>
           </Text>
           <Text style={styles.alertItem}>• {dormantCustomerCount ?? '—'} dormant customers</Text>
         </View>
@@ -317,7 +363,6 @@ export default function App() {
           </Text>
         </View>
       )}
-
       {/* Agent Modal / Drawer */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
@@ -363,6 +408,14 @@ export default function App() {
                 <View style={styles.attachmentRow}>
                   <Feather name="paperclip" size={13} color="#a5b4fc" />
                   <Text style={styles.attachmentText}>{attachment.name}</Text>
+                  <TouchableOpacity
+                    style={styles.removeAttachmentButton}
+                    onPress={() => setAttachment(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove attachment"
+                  >
+                    <Feather name="x" size={16} color="#64748b" />
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -371,6 +424,13 @@ export default function App() {
               {submittedQuestion ? (
                 <View style={styles.userBubble}>
                   <Text style={styles.userBubbleText}>"{submittedQuestion}"</Text>
+                  {submittedAttachment && (
+                    <View style={styles.sentAttachmentRow}>
+                      <Feather name="paperclip" size={14} color="#1d4ed8" />
+                      <Text style={styles.sentAttachmentName}>{submittedAttachment.name}</Text>
+                      <Text style={styles.sentAttachmentType}>{submittedAttachment.mimeType}</Text>
+                    </View>
+                  )}
                 </View>
               ) : null}
 
@@ -391,26 +451,23 @@ export default function App() {
                   {agentResponse?.reply && (
                     <View style={styles.answerCard}>
                       <View style={styles.answerHeaderRow}>
-                        <Text style={styles.answerHeader}>AGENT ANSWER</Text>
+                        <View style={styles.answerBrand}>
+                          <View style={styles.answerAgentIcon}>
+                            <Feather name="zap" size={13} color="#047857" />
+                          </View>
+                          <Text style={styles.answerHeader}>AUTOPILOT AGENT</Text>
+                        </View>
                         <TouchableOpacity
                           onPress={() => readAnswerAloud(agentResponse.reply)}
                           accessibilityRole="button"
                           accessibilityLabel="Read answer aloud"
                         >
-                          <Feather name="volume-2" size={18} color="#bfdbfe" />
+                          <Feather name="volume-2" size={18} color="#0f766e" />
                         </TouchableOpacity>
                       </View>
                       <Text style={styles.answerText}>{agentResponse.reply}</Text>
                     </View>
                   )}
-
-                  {/* Step 1: Investigation Findings */}
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionHeader}>🔍 VERIFIED FACTS</Text>
-                    {(agentResponse?.findings || []).map((finding) => (
-                      <Text style={styles.factText} key={finding}>• {finding}</Text>
-                    ))}
-                  </View>
 
                   {agentResponse?.campaign && agentResponse.policyResult && (
                     <>
@@ -516,6 +573,70 @@ const styles = StyleSheet.create({
     color: '#44618d',
     fontSize: 16,
     marginBottom: 10,
+  },
+  revenueChartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  revenueChartTitle: {
+    color: '#64748b',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  rushHourLabel: {
+    color: '#b45309',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  revenueChart: {
+    height: 96,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 2,
+  },
+  revenueWindow: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 3,
+  },
+  revenueBarTrack: {
+    width: '100%',
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  revenueBar: {
+    width: '58%',
+    maxWidth: 18,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    backgroundColor: '#2a9d8f',
+  },
+  peakRevenueBar: {
+    backgroundColor: '#f59e0b',
+  },
+  fallingRevenueBar: {
+    backgroundColor: '#e76f51',
+  },
+  revenueWindowHour: {
+    color: '#64748b',
+    fontSize: 8,
+    fontWeight: '700',
+  },
+  revenueWindowAmount: {
+    color: '#334155',
+    fontSize: 8,
+    fontWeight: '700',
+  },
+  revenueChartCaption: {
+    color: '#64748b',
+    fontSize: 11,
+    marginTop: 8,
   },
   row: {
     flexDirection: 'row',
@@ -684,6 +805,13 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontWeight: '700',
   },
+  positive: {
+    color: '#15803d',
+    fontWeight: '700',
+  },
+  alertIncreaseTitle: {
+    color: '#15803d',
+  },
   actionButton: {
     backgroundColor: '#2563eb',
     flexDirection: 'row',
@@ -814,22 +942,46 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   userBubble: {
-    backgroundColor: '#dbeafe',
+    maxWidth: '90%',
+    backgroundColor: '#1d4ed8',
     alignSelf: 'flex-end',
     borderRadius: 14,
+    borderBottomRightRadius: 4,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 11,
     marginBottom: 16,
   },
   userBubbleText: {
-    color: '#1e3a8a',
+    color: '#ffffff',
     fontSize: 14,
-    fontStyle: 'italic',
+    lineHeight: 20,
   },
   attachmentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 7,
+  },
+  removeAttachmentButton: {
+    padding: 4,
+  },
+  sentAttachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 7,
+    borderTopWidth: 1,
+    borderTopColor: '#93c5fd',
+  },
+  sentAttachmentName: {
+    flex: 1,
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sentAttachmentType: {
+    color: '#dbeafe',
+    fontSize: 10,
   },
   emptyState: {
     alignItems: 'center',
@@ -850,19 +1002,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   answerCard: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: '#ffffff',
+    borderColor: '#d1dbe5',
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#0f766e',
+    borderRadius: 10,
+    padding: 16,
     marginBottom: 12,
   },
   answerHeader: {
-    color: '#2563eb',
+    color: '#0f766e',
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 7,
+  },
+  answerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  answerAgentIcon: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 7,
+    backgroundColor: '#d1fae5',
   },
   answerHeaderRow: {
     flexDirection: 'row',
@@ -870,9 +1035,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   answerText: {
-    color: '#1e355b',
-    fontSize: 14,
-    lineHeight: 20,
+    color: '#1f2937',
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 10,
   },
   loadingBox: {
     alignItems: 'center',
@@ -887,24 +1053,6 @@ const styles = StyleSheet.create({
   loadingSubtext: {
     color: '#64748b',
     fontSize: 12,
-  },
-  sectionCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    color: '#2563eb',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  factText: {
-    color: '#334155',
-    fontSize: 14,
-    marginBottom: 4,
   },
   boldRed: {
     color: '#ef4444',
@@ -953,7 +1101,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   recommendTitle: {
-    color: '#ffffff',
+    color: '#14284b',
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 6,

@@ -1,4 +1,6 @@
 ﻿import type { CampaignProposal, DashboardMetrics, InvestigationResult, PolicyCheckResult } from '../types/business';
+import { File as ExpoFile } from 'expo-file-system';
+import { Platform } from 'react-native';
 
 const DEFAULT_API_HOST = typeof window !== 'undefined' && typeof window.location !== 'undefined'
   ? window.location.hostname || '10.2.37.182'
@@ -57,17 +59,26 @@ export type AgentAttachment = {
   mimeType: string;
 };
 
+const appendUpload = async (body: FormData, uri: string, name: string, mimeType: string) => {
+  if (Platform.OS === 'web') {
+    const response = await fetch(uri);
+    if (!response.ok) throw new Error('Unable to read the selected file.');
+    const blob = await response.blob();
+    body.append('file', new Blob([blob], { type: mimeType || blob.type }), name);
+    return;
+  }
+
+  const file = new ExpoFile(uri);
+  body.append('file', file, name);
+};
+
 export const askAutopilotAgentWithAttachment = async (
   userPrompt: string,
   attachment: AgentAttachment
 ): Promise<InvestigationResult> => {
   const body = new FormData();
   body.append('query', userPrompt);
-  body.append('file', {
-    uri: attachment.uri,
-    name: attachment.name,
-    type: attachment.mimeType,
-  } as unknown as Blob);
+  await appendUpload(body, attachment.uri, attachment.name, attachment.mimeType);
   const result = await request<InvestigationResult>('/investigations/run', { method: 'POST', body });
   if (!result.hasProposal) return result;
 
@@ -77,11 +88,7 @@ export const askAutopilotAgentWithAttachment = async (
 
 export const transcribeVoice = async (audioUri: string): Promise<string> => {
   const body = new FormData();
-  body.append('file', {
-    uri: audioUri,
-    name: 'voice-question.m4a',
-    type: 'audio/m4a',
-  } as unknown as Blob);
+  await appendUpload(body, audioUri, 'voice-question.m4a', 'audio/m4a');
   body.append('language', 'auto');
   const result = await request<{ text: string }>('/transcriptions', { method: 'POST', body });
   return result.text;

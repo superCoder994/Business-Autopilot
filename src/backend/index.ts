@@ -6,6 +6,7 @@ import type { BusinessState, CampaignProposal, PolicyCheckResult } from './types
 import {
   calculateEveningDrop,
   calculateRevenueForDate,
+  calculateRevenueByTwoHourWindow,
   calculateRevenueChangePct,
   getDormantCustomers
 } from './analytics';
@@ -24,6 +25,11 @@ export class AutopilotEngine {
   public getBusinessState(): BusinessState {
     const now = new Date();
     const todayRevenue = calculateRevenueForDate(this.transactions, now, BUSINESS_TIMEZONE_OFFSET_MINUTES);
+    const revenueByTwoHourWindow = calculateRevenueByTwoHourWindow(
+      this.transactions,
+      now,
+      BUSINESS_TIMEZONE_OFFSET_MINUTES
+    );
     const { dropPct } = calculateEveningDrop(
       this.transactions,
       this.baselineEveningSales,
@@ -34,10 +40,10 @@ export class AutopilotEngine {
     const dormantCustomerCount = getDormantCustomers(this.customers, 21, now).length;
     const activeCampaign = [...this.campaigns.values()].find(c => c.status === 'active') ?? null;
 
-    // The mock dataset has no previous-day revenue, so 0 means "comparison unavailable".
     return {
       todayRevenue,
-      revenueChangePct: 0,
+      revenueChangePct: calculateRevenueChangePct(todayRevenue, mockData.previousDayRevenue),
+      revenueByTwoHourWindow,
       eveningDropPct: dropPct,
       dormantCustomerCount,
       activeCampaign
